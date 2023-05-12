@@ -52,10 +52,7 @@ def generate_chat_prompt(user_input, max_new_tokens, name1, name2, context, chat
 
     prompt = ''.join(rows)
 
-    if also_return_rows:
-        return prompt, rows
-    else:
-        return prompt
+    return (prompt, rows) if also_return_rows else prompt
 
 def extract_message_from_reply(reply, name1, name2, check):
     next_character_found = False
@@ -118,7 +115,7 @@ def chatbot_wrapper(text, max_new_tokens, do_sample, temperature, top_p, typical
 
     # Generate
     cumulative_reply = ''
-    for i in range(chat_generation_attempts):
+    for _ in range(chat_generation_attempts):
         reply = None
         for reply in generate_reply(f"{prompt}{' ' if len(cumulative_reply) > 0 else ''}{cumulative_reply}", max_new_tokens, do_sample, temperature, top_p, typical_p, repetition_penalty, encoder_repetition_penalty, top_k, min_length, no_repeat_ngram_size, num_beams, penalty_alpha, length_penalty, early_stopping, seed, eos_token=eos_token, stopping_strings=[f"\n{name1}:", f"\n{name2}:"]):
             reply = cumulative_reply + reply
@@ -163,7 +160,7 @@ def impersonate_wrapper(text, max_new_tokens, do_sample, temperature, top_p, typ
     yield shared.processing_message
 
     cumulative_reply = ''
-    for i in range(chat_generation_attempts):
+    for _ in range(chat_generation_attempts):
         reply = None
         for reply in generate_reply(f"{prompt}{' ' if len(cumulative_reply) > 0 else ''}{cumulative_reply}", max_new_tokens, do_sample, temperature, top_p, typical_p, repetition_penalty, encoder_repetition_penalty, top_k, min_length, no_repeat_ngram_size, num_beams, penalty_alpha, length_penalty, early_stopping, seed, eos_token=eos_token, stopping_strings=[f"\n{name1}:", f"\n{name2}:"]):
             reply = cumulative_reply + reply
@@ -197,7 +194,10 @@ def regenerate_wrapper(text, max_new_tokens, do_sample, temperature, top_p, typi
             yield generate_chat_output(shared.history['visible'], name1, name2, shared.character)
 
 def remove_last_message(name1, name2):
-    if len(shared.history['visible']) > 0 and not shared.history['internal'][-1][0] == '<|BEGIN-VISIBLE-CHAT|>':
+    if (
+        len(shared.history['visible']) > 0
+        and shared.history['internal'][-1][0] != '<|BEGIN-VISIBLE-CHAT|>'
+    ):
         last = shared.history['visible'].pop()
         shared.history['internal'].pop()
     else:
@@ -256,12 +256,10 @@ def tokenize_dialogue(dialogue, name1, name2):
     dialogue = re.sub('(\n|^)[Aa]non:', '\\1You:', dialogue)
     dialogue = re.sub('(\n|^)\[CHARACTER\]:', f'\\g<1>{name2}:', dialogue)
     idx = [m.start() for m in re.finditer(f"(^|\n)({re.escape(name1)}|{re.escape(name2)}):", dialogue)]
-    if len(idx) == 0:
+    if not idx:
         return _history
 
-    messages = []
-    for i in range(len(idx)-1):
-        messages.append(dialogue[idx[i]:idx[i+1]].strip())
+    messages = [dialogue[idx[i]:idx[i+1]].strip() for i in range(len(idx)-1)]
     messages.append(dialogue[idx[-1]:].strip())
 
     entry = ['', '']
@@ -270,7 +268,7 @@ def tokenize_dialogue(dialogue, name1, name2):
             entry[0] = i[len(f'{name1}:'):].strip()
         elif i.startswith(f'{name2}:'):
             entry[1] = i[len(f'{name2}:'):].strip()
-            if not (len(entry[0]) == 0 and len(entry[1]) == 0):
+            if len(entry[0]) != 0 or len(entry[1]) != 0:
                 _history.append(entry)
             entry = ['', '']
 
@@ -279,7 +277,7 @@ def tokenize_dialogue(dialogue, name1, name2):
         for column in row:
             print("\n")
             for line in column.strip().split('\n'):
-                print("|  "+line+"\n")
+                print(f"|  {line}" + "\n")
             print("|\n")
         print("------------------------------")
 

@@ -42,14 +42,12 @@ def check_valid_api():
 def refresh_voices():
     
     global user, user_info
-    
-    your_voices = [None]
-    if user_info is not None:
-        for voice in user.get_available_voices():
-            your_voices.append(voice.initialName)
-        return  gr.Dropdown.update(choices=your_voices)
-    else:
+
+    if user_info is None:
         return
+    your_voices = [None]
+    your_voices.extend(voice.initialName for voice in user.get_available_voices())
+    return  gr.Dropdown.update(choices=your_voices)
 
 def remove_surrounded_chars(string):
     # this expression matches to 'as few symbols as possible (0 upwards) between any asterisks' OR
@@ -70,12 +68,9 @@ def output_modifier(string):
     """
 
     global params, wav_idx, user, user_info
-    
-    if params['activate'] == False:
-        return string
-    elif user_info == None:
-        return string
 
+    if params['activate'] == False or user_info is None:
+        return string
     string = remove_surrounded_chars(string)
     string = string.replace('"', '')
     string = string.replace('“', '')
@@ -84,7 +79,7 @@ def output_modifier(string):
 
     if string == '':
         string = 'empty reply, try regenerating'
-        
+
     output_file = Path(f'extensions/elevenlabs_tts/outputs/{wav_idx:06d}.wav'.format(wav_idx))
     voice = user.get_voices_by_name(params['selected_voice'])[0]
     audio_data = voice.generate_audio_bytes(string)

@@ -137,12 +137,11 @@ def save_prompt(text):
 def load_prompt(fname):
     if fname in ['None', '']:
         return ''
-    else:
-        with open(Path(f'prompts/{fname}.txt'), 'r', encoding='utf-8') as f:
-            text = f.read()
-            if text[-1] == '\n':
-                text = text[:-1]
-            return text
+    with open(Path(f'prompts/{fname}.txt'), 'r', encoding='utf-8') as f:
+        text = f.read()
+        if text[-1] == '\n':
+            text = text[:-1]
+        return text
         
 def create_prompt_menus():
     with gr.Row():
@@ -511,7 +510,7 @@ def create_interface():
     if shared.args.gradio_auth_path is not None:
         gradio_auth_creds = []
         with open(shared.args.gradio_auth_path, 'r', encoding="utf8") as file:
-            for line in file.readlines():
+            for line in file:
                 gradio_auth_creds += [x.strip() for x in line.split(',') if x.strip()]
         auth = [tuple(cred.split(':')) for cred in gradio_auth_creds]
 

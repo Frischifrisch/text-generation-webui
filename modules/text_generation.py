@@ -41,13 +41,11 @@ def encode(prompt, tokens_to_generate=0, add_special_tokens=True):
             return input_ids.cuda()
 
 def decode(output_ids):
-    # Open Assistant relies on special tokens like <|endoftext|>
     if re.match('.*(oasst|galactica)-*', shared.model_name.lower()):
         return shared.tokenizer.decode(output_ids, skip_special_tokens=False)
-    else:
-        reply = shared.tokenizer.decode(output_ids, skip_special_tokens=True)
-        reply = reply.replace(r'<|endoftext|>', '')
-        return reply
+    reply = shared.tokenizer.decode(output_ids, skip_special_tokens=True)
+    reply = reply.replace(r'<|endoftext|>', '')
+    return reply
 
 def generate_softprompt_input_tensors(input_ids):
     inputs_embeds = shared.model.transformer.wte(input_ids)
@@ -58,7 +56,7 @@ def generate_softprompt_input_tensors(input_ids):
 
 # Removes empty replies from gpt4chan outputs
 def fix_gpt4chan(s):
-    for i in range(10):
+    for _ in range(10):
         s = re.sub("--- [0-9]*\n>>[0-9]*\n---", "---", s)
         s = re.sub("--- [0-9]*\n *\n---", "---", s)
         s = re.sub("--- [0-9]*\n\n\n---", "---", s)
@@ -76,17 +74,16 @@ def fix_galactica(s):
     return s
 
 def formatted_outputs(reply, model_name):
-    if not shared.is_chat():
-        if 'galactica' in model_name.lower():
-            reply = fix_galactica(reply)
-            return reply, reply, generate_basic_html(reply)
-        elif any((k in shared.model_name.lower() for k in ['gpt4chan', 'gpt-4chan'])):
-            reply = fix_gpt4chan(reply)
-            return reply, 'Only applicable for GALACTICA models.', generate_4chan_html(reply)
-        else:
-            return reply, 'Only applicable for GALACTICA models.', generate_basic_html(reply)
-    else:
+    if shared.is_chat():
         return reply
+    if 'galactica' in model_name.lower():
+        reply = fix_galactica(reply)
+        return reply, reply, generate_basic_html(reply)
+    elif any((k in shared.model_name.lower() for k in ['gpt4chan', 'gpt-4chan'])):
+        reply = fix_gpt4chan(reply)
+        return reply, 'Only applicable for GALACTICA models.', generate_4chan_html(reply)
+    else:
+        return reply, 'Only applicable for GALACTICA models.', generate_basic_html(reply)
 
 def clear_torch_cache():
     gc.collect()
@@ -186,15 +183,15 @@ def generate_reply(question, max_new_tokens, do_sample, temperature, top_p, typi
             "stop": eos_token_ids[-1],
         })
     if shared.args.no_cache:
-        generate_params.update({"use_cache": False})
+        generate_params["use_cache"] = False
     if shared.args.deepspeed:
-        generate_params.update({"synced_gpus": True})
+        generate_params["synced_gpus"] = True
     if shared.soft_prompt:
         inputs_embeds, filler_input_ids = generate_softprompt_input_tensors(input_ids)
-        generate_params.update({"inputs_embeds": inputs_embeds})
-        generate_params.update({"inputs": filler_input_ids})
+        generate_params["inputs_embeds"] = inputs_embeds
+        generate_params["inputs"] = filler_input_ids
     else:
-        generate_params.update({"inputs": input_ids})
+        generate_params["inputs"] = input_ids
 
     try:
         # Generate the entire reply at once.
@@ -213,8 +210,6 @@ def generate_reply(question, max_new_tokens, do_sample, temperature, top_p, typi
 
             yield formatted_outputs(reply, shared.model_name)
 
-        # Stream the reply 1 token at a time.
-        # This is based on the trick of using 'stopping_criteria' to create an iterator.
         elif not shared.args.flexgen:
 
             def generate_with_callback(callback=None, **kwargs):
@@ -242,7 +237,6 @@ def generate_reply(question, max_new_tokens, do_sample, temperature, top_p, typi
                         break
                     yield formatted_outputs(reply, shared.model_name)
 
-        # Stream the output naively for FlexGen since it doesn't support 'stopping_criteria'
         else:
             for i in range(max_new_tokens//8+1):
                 clear_torch_cache()
@@ -263,10 +257,10 @@ def generate_reply(question, max_new_tokens, do_sample, temperature, top_p, typi
                 input_ids = np.reshape(output, (1, output.shape[0]))
                 if shared.soft_prompt:
                     inputs_embeds, filler_input_ids = generate_softprompt_input_tensors(input_ids)
-                    generate_params.update({"inputs_embeds": inputs_embeds})
-                    generate_params.update({"inputs": filler_input_ids})
+                    generate_params["inputs_embeds"] = inputs_embeds
+                    generate_params["inputs"] = filler_input_ids
                 else:
-                    generate_params.update({"inputs": input_ids})
+                    generate_params["inputs"] = input_ids
 
             yield formatted_outputs(reply, shared.model_name)
 

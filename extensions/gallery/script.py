@@ -8,7 +8,7 @@ from modules.shared import gradio, settings
 
 
 def generate_css():
-    css = """
+    return """
       .character-gallery > .gallery {
         margin: 1rem 0;
         display: grid !important;
@@ -55,7 +55,6 @@ def generate_css():
         overflow-wrap: anywhere;
       }
     """
-    return css
 
 
 def generate_html():
@@ -64,7 +63,7 @@ def generate_html():
     for file in sorted(Path("characters").glob("*")):
         if file.name.endswith(".json"):
             character = file.name.replace(".json", "")
-            container_html = f'<div class="character-container">'
+            container_html = '<div class="character-container">'
             image_html = "<div class='placeholder'></div>"
 
             for i in [
@@ -95,7 +94,7 @@ def select_character(evt: gr.SelectData):
 def ui():
     with gr.Accordion("Character gallery", open=False):
         update = gr.Button("Refresh")
-        gr.HTML(value="<style>"+generate_css()+"</style>")
+        gr.HTML(value=f"<style>{generate_css()}</style>")
         gallery = gr.Dataset(components=[gr.HTML(visible=False)],
             label="",
             samples=generate_html(),

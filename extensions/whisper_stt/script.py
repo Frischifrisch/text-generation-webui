@@ -23,7 +23,7 @@ def do_stt(audio, text_state=""):
 
     input_hijack.update({"state": True, "value": [transcription, transcription]})
 
-    text_state += transcription + " "
+    text_state += f"{transcription} "
     return text_state, text_state
 
 
@@ -35,9 +35,7 @@ def update_hijack(val):
 def auto_transcribe(audio, audio_auto, text_state=""):
     if audio is None:
         return "", ""
-    if audio_auto:
-        return do_stt(audio, text_state)
-    return "", ""
+    return do_stt(audio, text_state) if audio_auto else ("", "")
 
 
 def ui():

@@ -77,7 +77,7 @@ def get_SD_pictures(description):
         "restore_faces": params['restore_faces'],
         "negative_prompt": params['negative_prompt']
     }
-    
+
     response = requests.post(url=f'{params["address"]}/sdapi/v1/txt2img', json=payload)
     r = response.json()
 
@@ -94,9 +94,9 @@ def get_SD_pictures(description):
         image.save(buffered, format="JPEG")
         buffered.seek(0)
         image_bytes = buffered.getvalue()
-        img_str = "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
-        visible_result = visible_result + f'<img src="{img_str}" alt="{description}">\n'
-    
+        img_str = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode()}"
+        visible_result = f'{visible_result}<img src="{img_str}" alt="{description}">\n'
+
     return visible_result
 
 # TODO: how do I make the UI history ignore the resulting pictures (I don't want HTML to appear in history)

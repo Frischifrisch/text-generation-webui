@@ -45,16 +45,12 @@ def generate_basic_html(string):
 def process_post(post, c):
     t = post.split('\n')
     number = t[0].split(' ')[1]
-    if len(t) > 1:
-        src = '\n'.join(t[1:])
-    else:
-        src = ''
+    src = '\n'.join(t[1:]) if len(t) > 1 else ''
     src = re.sub('>', '&gt;', src)
     src = re.sub('(&gt;&gt;[0-9]*)', '<span class="quote">\\1</span>', src)
     src = re.sub('\n', '<br>\n', src)
     src = f'<blockquote class="message">{src}\n'
-    src = f'<span class="name">Anonymous </span> <span class="number">No.{number}</span>\n{src}'
-    return src
+    return f'<span class="name">Anonymous </span> <span class="number">No.{number}</span>\n{src}'
 
 def generate_4chan_html(f):
     posts = []
@@ -123,7 +119,7 @@ def generate_chat_html(history, name1, name2, character):
     img_bot = load_html_image([f"characters/{character}.{ext}" for ext in ['png', 'jpg', 'jpeg']] + ["img_bot.png","img_bot.jpg","img_bot.jpeg"])
     img_me = load_html_image(["img_me.png", "img_me.jpg", "img_me.jpeg"])
 
-    for i,_row in enumerate(history[::-1]):
+    for _row in history[::-1]:
         row = [convert_to_markdown(entry) for entry in _row]
 
         output += f"""
@@ -142,10 +138,8 @@ def generate_chat_html(history, name1, name2, character):
               </div>
             """
 
-        if len(row[0]) == 0: # don't display empty user messages
-            continue
-
-        output += f"""
+        if len(row[0]) != 0:
+            output += f"""
               <div class="message">
                 <div class="circle-you">
                   {img_me}

@@ -87,9 +87,7 @@ def clean_path(base_path: str, path: str):
     # TODO: Probably could do with a security audit to guarantee there's no ways this can be bypassed to target an unwanted path.
     # Or swap it to a strict whitelist of [a-zA-Z_0-9]
     path = path.replace('\\', '/').replace('..', '_')
-    if base_path is None:
-        return path
-    return f'{Path(base_path).absolute()}/{path}'
+    return path if base_path is None else f'{Path(base_path).absolute()}/{path}'
 
 def do_train(lora_name: str, micro_batch_size: int, batch_size: int, epochs: int, learning_rate: str, lora_rank: int,
              lora_alpha: int, lora_dropout: float, cutoff_len: int, dataset: str, eval_dataset: str, format: str, raw_text_file: str, overlap_len: int):
@@ -104,7 +102,7 @@ def do_train(lora_name: str, micro_batch_size: int, batch_size: int, epochs: int
     actual_lr = float(learning_rate)
 
     if cutoff_len <= 0 or micro_batch_size <= 0 or batch_size <= 0 or actual_lr <= 0 or lora_rank <= 0 or lora_alpha <= 0:
-        yield f"Cannot input zeroes."
+        yield "Cannot input zeroes."
         return
 
     gradient_accumulation_steps = batch_size // micro_batch_size
@@ -137,11 +135,11 @@ def do_train(lora_name: str, micro_batch_size: int, batch_size: int, epochs: int
         del text_chunks
 
     else:
-        if dataset in ['None', '']:
+        if dataset in {'None', ''}:
             yield "**Missing dataset choice input, cannot continue.**"
             return
 
-        if format in ['None', '']:
+        if format in {'None', ''}:
             yield "**Missing format choice input, cannot continue.**"
             return
 
@@ -150,7 +148,9 @@ def do_train(lora_name: str, micro_batch_size: int, batch_size: int, epochs: int
 
         def generate_prompt(data_point: dict[str, str]):
             for options, data in format_data.items():
-                if set(options.split(',')) == set(x[0] for x in data_point.items() if len(x[1].strip()) > 0):
+                if set(options.split(',')) == {
+                    x[0] for x in data_point.items() if len(x[1].strip()) > 0
+                }:
                     for key, val in data_point.items():
                         data = data.replace(f'%{key}%', val)
                 return data
@@ -169,12 +169,12 @@ def do_train(lora_name: str, micro_batch_size: int, batch_size: int, epochs: int
         else:
             eval_data = load_dataset("json", data_files=clean_path('training/datasets', f'{eval_dataset}.json'))
             eval_data = eval_data['train'].shuffle().map(generate_and_tokenize_prompt)
-    
+
     # == Start prepping the model itself ==
     if not hasattr(shared.model, 'lm_head') or hasattr(shared.model.lm_head, 'weight'):
         print("Getting model ready...")
         prepare_model_for_int8_training(shared.model)
-    
+
     print("Prepping for training...")
     config = LoraConfig(
         r=lora_rank,
@@ -199,7 +199,6 @@ def do_train(lora_name: str, micro_batch_size: int, batch_size: int, epochs: int
         args=transformers.TrainingArguments(
             per_device_train_batch_size=micro_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
-            # TODO: Should more of these be configurable? Probably.
             warmup_steps=100,
             num_train_epochs=epochs,
             learning_rate=actual_lr,
@@ -211,12 +210,13 @@ def do_train(lora_name: str, micro_batch_size: int, batch_size: int, epochs: int
             save_steps=200,
             output_dir=lora_name,
             save_total_limit=3,
-            load_best_model_at_end=True if eval_data is not None else False,
-            # TODO: Enable multi-device support
-            ddp_find_unused_parameters=None
+            load_best_model_at_end=eval_data is not None,
+            ddp_find_unused_parameters=None,
         ),
-        data_collator=transformers.DataCollatorForLanguageModeling(shared.tokenizer, mlm=False),
-        callbacks=list([Callbacks()])
+        data_collator=transformers.DataCollatorForLanguageModeling(
+            shared.tokenizer, mlm=False
+        ),
+        callbacks=[Callbacks()],
     )
 
     lora_model.config.use_cache = False
@@ -253,10 +253,7 @@ def do_train(lora_name: str, micro_batch_size: int, batch_size: int, epochs: int
                 totalTimeEstimate = 999
             else:
                 its = CURRENT_STEPS / timeElapsed
-                if its > 1:
-                    timerInfo = f"`{its:.2f}` it/s"
-                else:
-                    timerInfo = f"`{1.0/its:.2f}` s/it"
+                timerInfo = f"`{its:.2f}` it/s" if its > 1 else f"`{1.0 / its:.2f}` s/it"
                 totalTimeEstimate = (1.0/its) * (MAX_STEPS)
             yield f"Running... **{CURRENT_STEPS}** / **{MAX_STEPS}** ... {timerInfo}, `{timeElapsed:.0f}`/`{totalTimeEstimate:.0f}` seconds"
 
